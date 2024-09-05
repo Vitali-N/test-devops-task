@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "coffee-shop-backend.fullname" . }}
+  labels:
+    {{- include "coffee-shop-backend.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.hpa.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: {{ include "coffee-shop-backend.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "coffee-shop-backend.name" . }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: db-migrations
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          {{- if $.Values.command }}
+          command:
+            {{  range .Values.command.initcmd }}
+              - {{ . }}
+            {{ end }}
+          {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ include "coffee-shop-backend.fullname" . }}-secret
+      containers:
+        - name: coffee-shop-backend
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if $.Values.command }}
+          command:
+            {{  range .Values.command.cmd }}
+              - {{ . }}
+            {{ end }}
+          {{- end }}
+          ports:
+            {{- range .Values.service.ports }}
+            - containerPort: {{ .port }}
+              protocol: TCP
+              name: {{ .name }}
+            {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ include "coffee-shop-backend.fullname" . }}-secret
+          resources:
+            requests:
+              memory: {{ .Values.resources.requests.memory }}
+              cpu: {{ .Values.resources.requests.cpu }}
+            limits:
+              memory: {{ .Values.resources.limits.memory }}
+              cpu: {{ .Values.resources.limits.cpu }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.startupProbe | nindent 12 }}
+          {{- end }}

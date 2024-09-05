@@ -1,0 +1,20 @@
+{{- if .Values.ServiceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "coffee-shop-backend.fullname" . }}-monitor
+  labels:
+    release: {{ .Values.ServiceMonitor.releaseLabel | default "prometheus" }}
+    {{- include "coffee-shop-backend.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "coffee-shop-backend.name" . }}
+  endpoints:
+  - port: {{ .Values.ServiceMonitor.port | default "http" }}
+    path: {{ .Values.ServiceMonitor.path | default "/metrics" }}
+    interval: {{ .Values.ServiceMonitor.interval | default "30s" }}
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+{{- end }}

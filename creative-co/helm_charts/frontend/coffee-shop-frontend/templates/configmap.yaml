@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "coffee-shop-frontend.fullname" . }}-config
+  labels:
+    {{- include "coffee-shop-frontend.labels" . | nindent 4 }}
+data:
+  {{- $filePath := .Values.envfile }}
+  {{- with .Files.Get $filePath }}
+  {{ . | nindent 2 }}
+  {{- end }}

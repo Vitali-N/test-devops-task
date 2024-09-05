@@ -1,0 +1,5 @@
+apiVersion: v2
+name: coffee-shop-backend
+description: A Helm chart for deploying the CoffeeShop Backend application
+version: 1.0.0
+appVersion: "1.0"

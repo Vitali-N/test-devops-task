@@ -1,0 +1,160 @@
+envfile: 'files/env-prod.yaml'
+
+
+image:
+  repository: coffee-shop-backend
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+ - name: coffee-shop-ecr-creds
+
+nameOverride: ""
+fullnameOverride: ""
+
+
+cronjob:
+  schedule: "0 0 * * *"  # Runs every day at midnight
+  cmd: ["yarn", "jobs:supply:prod"]
+
+
+command:
+  initcmd: [ "yarn", "migrations:prod" ]
+  cmd: [ "yarn", "server:prod" ]
+
+#################################################
+# DEPLOY
+replicaCount: 2
+
+deployment:
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1 # Number or percentage of pods that can be unavailable during the update
+      maxSurge: 1       # Number or percentage of extra pods that can be created during the update
+
+podDisruptionBudget:
+  enabled: true  # Set to false to disable PDB
+  minAvailable: 1
+
+
+#################################################
+# NETWORK
+service:
+  type: ClusterIP
+  ports:
+    - name: "http"
+      port: "8080"
+
+ingress:
+  enabled: true
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"  # Ensure SSL redirection is enabled
+    # nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  tls:
+    - hosts:
+      - api.coffee-shop.com
+      secretName: coffee-shop-backend-tls
+  hosts:
+    - host: api.coffee-shop.com
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+          name: "http"
+          port: "8080"
+
+secrettls:
+  enabled: true
+  crt: "your-base64-encoded-cert"
+  key: "your-base64-encoded-key"
+
+
+#################################################
+# PROBES
+livenessProbe:
+  enabled: true
+  httpGet:
+    path: /api/health
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  httpGet:
+    path: /api/health
+  initialDelaySeconds: 15
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# startupProbe:
+#   httpGet:
+#     path: /healthcheck/readiness
+#     port: http
+#   failureThreshold: 2
+#   periodSeconds: 3
+
+
+#################################################
+# RESOURCES
+resources:
+  requests:
+    memory: "1Gi"
+    cpu: "500m"
+  limits:
+    memory: "2Gi"
+    cpu: "1"
+
+# Horizontal Pod Autoscaler Configuration
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+
+#################################################
+# PLACEMENT
+nodeSelector: {}
+
+tolerations:
+- key: "type"
+  value: "deps"
+  effect: NoExecute
+
+affinity:
+  enabled: true
+  podAntiAffinity:
+    type: required # Options: required, preferred
+    preferredWeight: 100  # Used if type is 'preferred'
+    labelKey: app
+    labelOperator: In  # Options: In, NotIn, Exists, DoesNotExist
+    labelValue: coffee-shop-backend # Can be overridden, defaults to the app name
+    topologyKey: "kubernetes.io/hostname"  # Node-level anti-affinity
+
+
+#################################################
+# SECURITY
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+# capabilities:
+#   drop:
+#   - ALL
+# readOnlyRootFilesystem: true
+# runAsNonRoot: true
+# runAsUser: 1000
+
+
+#################################################
+# MONITORING
+ServiceMonitor:
+  enabled: true
+  releaseLabel: "prometheus"  # Label used to identify the Prometheus release
+  port: "http"  # Name of the port in the Service
+  path: "/metrics"  # Path for metrics
+  interval: "30s"  # Scraping interval
