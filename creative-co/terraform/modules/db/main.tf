@@ -3,7 +3,7 @@ resource "helm_release" "postgresql" {
   name       = "postgresql-${var.environment}"
   namespace  = var.namespace
   chart      = "bitnami/postgresql"
-  version    = "11.4.3"
+  version    = "14.2"
 
   set {
     name  = "postgresqlPassword"
